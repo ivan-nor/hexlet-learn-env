@@ -27,6 +27,7 @@
     "jest-cli": "^24.8.0"
   },
   "dependencies": {
+    "@hexlet/fs": "^0.3.6",
     "@hexlet/trees": "^0.5.11"
   }
 }
