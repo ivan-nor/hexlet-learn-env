@@ -1,53 +1,108 @@
 import path from 'path';
 import Tree from '@hexlet/trees';
+import { Dir, File } from '@hexlet/fs';
 
-// BEGIN (write your solution here)
-const getPathParts = (strPath) => {
-  const normalizedPath = path.normalize(strPath);
-  return normalizedPath.split(path.sep);
-};
-// END
+
+const getPathParts = (filepath) => filepath.split(path.sep).filter((part) => part !== '');
 
 export default class {
   constructor() {
-    this.tree = new Tree('/', { type: 'dir' });
+    this.tree = new Tree('/', new Dir('/'));
+  }
+
+  statSync(filepath) {
+    const current = this.findNode(filepath);
+    if (!current) {
+      return null;
+    }
+    return current.getMeta().getStats();
+  }
+
+  mkdirSync(filepath) {
+    const current = this.findNode(filepath);
+    if (current) {
+      return false;
+    }
+    const { base, dir } = path.parse(filepath);
+    const parent = this.findNode(dir);
+    if (!parent || parent.getMeta().isFile()) {
+      return false;
+    }
+    parent.addChild(base, new Dir(base));
+    return true;
   }
 
   // BEGIN (write your solution here)
-  isDirectory(dirPath) {
-    // console.log(dirPath);
-    const normalizedPath = getPathParts(dirPath);
-    // console.log(normalizedPath);
-    const node = this.getDeepChild(normalizedPath);
-    const meta = node.getMeta();
-    return meta.type === 'dir';
+  readdirSync(filepath) {
+    const { dir } = path.parse(filepath);
+    const current = this.findNode(filepath);
+    const parent = this.findNode(dir);
+    // console.log(current);
+    // const stats = this.statSync(filepath);
+    // console.log(JSON.stringify(stats, null, 4));
+    // console.log(stats.isDirectory());
+    if (!current || !parent) {
+      return false;
+    }
+    const children = current.getChildren();
+    const mapped = children.map((child) => child.getKey());
+    // console.log(mapped);
+    return mapped;
   }
 
-  isFile(filePath) {
-    console.log(filePath);
-    const normalizedPath = getPathParts(filePath);
-    console.log(normalizedPath);
-    const node = this.getDeepChild(normalizedPath);
-    const meta = node.getMeta();
-    return meta.type === 'file';
-  }
-
-  mkdirSync(dirPath) {
-    const normalizedPath = getPathParts(dirPath);
-    const parsingPath = path.parse(normalizedPath);
-    const node = this.getDeepChild(parsingPath.dir);
-    if (!node) return false;
-    return node.addChild(parsingPath.base, { type: 'dir' });
-  }
-
-  touchSync(filePath) {
-    const normalizedPath = getPathParts(filePath);
-    const parsingPath = path.parse(normalizedPath);
-    const node = this.getDeepChild(parsingPath.dir);
-    if (!node) return false;
-    return node.addChild(parsingPath.base, { type: 'file' });
+  mkdirpSync(filepath) {
+    const listPaths = getPathParts(filepath);
+    // console.log('LIST PATHS ', listPaths);
+    const iter = (paths, dir) => {
+      const [name, ...rest] = paths;
+      // console.log('paths ', paths);
+      // console.log('dir meta', dir.getMeta());
+      // console.log('is file ', dir.meta.isFile());
+      if (paths.length === 0 || dir.getMeta().isFile()) {
+        return false;
+      }
+      if (rest.length === 0) {
+        if (!dir.hasChild(name)) {
+          return dir.addChild(name, new Dir(name));
+        }
+        return false;
+      }
+      if (!dir.hasChild(name)) {
+        return iter(rest, dir.addChild(name, new Dir(name)));
+      }
+      return iter(rest, dir.getChild(name));
+    };
+    const result = iter(listPaths, this.tree);
+    // console.log('result ', result);
+    return result;
   }
   // END
+
+  touchSync(filepath) {
+    const { base, dir } = path.parse(filepath);
+    const parent = this.findNode(dir);
+    if (!parent) {
+      return false;
+    }
+    if (parent.getMeta().isFile()) {
+      return false;
+    }
+    parent.addChild(base, new File(base, ''));
+    return true;
+  }
+
+  rmdirSync(filepath) {
+    const { base } = path.parse(filepath);
+    const current = this.findNode(filepath);
+    if (!current) {
+      return false;
+    }
+    if (current.getMeta().isFile() || current.hasChildren()) {
+      return false;
+    }
+    current.getParent().removeChild(base);
+    return true;
+  }
 
   findNode(filepath) {
     const parts = getPathParts(filepath);
